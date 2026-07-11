@@ -1,5 +1,7 @@
 # webterm-ssh
 
+[Tiếng Việt](README.md)
+
 Terminal SSH ngay trên trình duyệt — mở một địa chỉ IP là có ngay dòng lệnh
 của thiết bị (Orange Pi, Raspberry Pi, server Linux bất kỳ), không cần cài
 PuTTY/Termius, không cần app, chạy được cả trên điện thoại.

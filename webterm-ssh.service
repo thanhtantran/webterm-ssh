@@ -1,0 +1,50 @@
+# webterm-ssh.service
+#
+# Systemd unit mẫu để chạy Browser SSH Terminal tự động mỗi khi thiết bị
+# khởi động (boot) và tự khởi động lại nếu tiến trình bị crash.
+#
+# ⚠️  Đây là FILE MẪU — cần sửa 2 dòng sau cho đúng máy của bạn trước khi dùng:
+#     - User            : tài khoản Linux sẽ chạy service (mặc định: orangepi)
+#     - WorkingDirectory / ExecStart : đường dẫn tới thư mục dự án
+#
+# Nếu bạn dùng script install.sh đi kèm, file này sẽ được tạo và điền
+# sẵn tự động — không cần sửa tay.
+#
+# Cài đặt thủ công:
+#   sudo cp webterm-ssh.service /etc/systemd/system/webterm-ssh.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now webterm-ssh
+#
+# Xem log:
+#   sudo journalctl -u webterm-ssh -f
+
+[Unit]
+Description=Browser SSH Terminal (xterm.js + WebSocket + Flask + Paramiko)
+After=network.target sshd.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=orangepi
+Group=orangepi
+WorkingDirectory=/home/orangepi/webterm-ssh
+ExecStart=/home/orangepi/webterm-ssh/venv/bin/python3 /home/orangepi/webterm-ssh/server.py
+
+# Cấu hình tài khoản SSH tự động đăng nhập (tuỳ chỉnh nếu cần)
+Environment=WEBTERM_SSH_HOST=127.0.0.1
+Environment=WEBTERM_SSH_PORT=22
+Environment=WEBTERM_SSH_USER=orangepi
+Environment=WEBTERM_SSH_PASS=orangepi
+
+Restart=always
+RestartSec=3
+
+# Log ra journald (xem bằng: journalctl -u webterm-ssh -f)
+StandardOutput=journal
+StandardError=journal
+
+# Một số giới hạn an toàn cơ bản (không bắt buộc, có thể bỏ nếu gây lỗi)
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

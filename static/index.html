@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<title>Browser SSH Terminal</title>
+<link rel="stylesheet" href="/static/vendor/xterm.css" />
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #1e1e1e;
+    font-family: -apple-system, "Segoe UI", sans-serif;
+  }
+  #topbar {
+    height: 36px; background: #2d2d2d; color: #ccc;
+    display: flex; align-items: center; padding: 0 12px;
+    font-size: 13px; border-bottom: 1px solid #444;
+  }
+  #status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #e74c3c; margin-right: 8px; transition: background 0.2s;
+  }
+  #status-dot.connected { background: #2ecc71; }
+
+  #error-box {
+    display: none;
+    position: absolute; top: 36px; left: 0; right: 0; bottom: 0;
+    align-items: center; justify-content: center;
+    color: #e74c3c; font-size: 14px; padding: 24px; text-align: center;
+    background: #1e1e1e;
+  }
+
+  #terminal-container {
+    position: absolute; top: 36px; left: 0; right: 0; bottom: 0;
+    padding: 8px; box-sizing: border-box;
+  }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div id="status-dot"></div>
+  <span id="status-text">Đang kết nối SSH...</span>
+</div>
+
+<div id="error-box"></div>
+<div id="terminal-container"></div>
+
+<script>
+  // Bắt mọi lỗi JS (kể cả lỗi tải xterm.js thất bại) và hiển thị ngay trên
+  // trang, để không bao giờ bị "treo im lặng" như lỗi CDN trước đây.
+  window.onerror = function (message, source, lineno, colno, error) {
+    document.body.innerHTML =
+      '<div style="color:#e74c3c;padding:24px;font-family:monospace;white-space:pre-wrap">' +
+      '❌ Lỗi JavaScript, trang không thể chạy:\n\n' + message +
+      '\n\n(' + source + ':' + lineno + ')' +
+      '</div>';
+  };
+</script>
+<script src="/static/vendor/xterm.js"></script>
+<script src="/static/vendor/xterm-addon-fit.js"></script>
+<script>
+  const term = new Terminal({
+    cursorBlink: true,
+    fontSize: 14,
+    fontFamily: 'Menlo, Consolas, "Courier New", monospace',
+    theme: { background: '#1e1e1e', foreground: '#e0e0e0', cursor: '#ffffff' }
+  });
+  const fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(document.getElementById('terminal-container'));
+  fitAddon.fit();
+
+  const statusDot = document.getElementById('status-dot');
+  const statusText = document.getElementById('status-text');
+  const errorBox = document.getElementById('error-box');
+  const termContainer = document.getElementById('terminal-container');
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${window.location.host}/ws`;
+  let ws;
+  let reconnectTimer = null;
+
+  function connect() {
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      // Không cần gửi gì cả — server tự động đăng nhập SSH
+      // (orangepi/orangepi) ngay khi WebSocket mở.
+      statusText.textContent = 'Đang xác thực SSH...';
+    };
+
+    ws.onmessage = (event) => {
+      let msg;
+      try { msg = JSON.parse(event.data); } catch { return; }
+
+      if (msg.type === 'status') {
+        if (msg.status === 'connected') {
+          statusDot.classList.add('connected');
+          statusText.textContent = 'Đã kết nối (orangepi)';
+          errorBox.style.display = 'none';
+          termContainer.style.display = 'block';
+          fitAddon.fit();
+          term.focus();
+          sendResize();
+        } else if (msg.status === 'error') {
+          statusDot.classList.remove('connected');
+          statusText.textContent = 'Lỗi kết nối SSH';
+          termContainer.style.display = 'none';
+          errorBox.style.display = 'flex';
+          errorBox.textContent = msg.msg || 'Không thể kết nối SSH';
+        }
+      } else if (msg.type === 'output') {
+        term.write(msg.data);
+      }
+    };
+
+    ws.onclose = () => {
+      statusDot.classList.remove('connected');
+      statusText.textContent = 'Mất kết nối — đang thử lại...';
+      reconnectTimer = setTimeout(connect, 2000);
+    };
+
+    ws.onerror = () => { ws.close(); };
+  }
+
+  function sendResize() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      fitAddon.fit();
+      ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+    }
+  }
+
+  term.onData((data) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'input', data }));
+    }
+  });
+
+  window.addEventListener('resize', sendResize);
+
+  connect();
+</script>
+</body>
+</html>

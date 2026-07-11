@@ -1,6 +1,6 @@
 # webterm-ssh
 
-[English version](README-en.md)
+[Tiếng Việt](README.md)
 
 Terminal SSH right in your browser — open the device's IP and you get a command line
 for the device (Orange Pi, Raspberry Pi, any Linux server) without installing

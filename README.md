@@ -1,6 +1,6 @@
 # webterm-ssh
 
-[Tiếng Việt](README.md)
+[English version](README-en.md)
 
 Terminal SSH ngay trên trình duyệt — mở một địa chỉ IP là có ngay dòng lệnh
 của thiết bị (Orange Pi, Raspberry Pi, server Linux bất kỳ), không cần cài

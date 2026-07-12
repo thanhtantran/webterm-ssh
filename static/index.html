@@ -80,6 +80,38 @@
   let ws;
   let reconnectTimer = null;
 
+  // ============================================================
+  // Lấy tham số từ URL để tự động chạy lệnh
+  // Ví dụ: ?cmd=ls%20-la  hoặc  ?cmd=df%20-h
+  // ============================================================
+  const urlParams = new URLSearchParams(window.location.search);
+  const autoCmd = urlParams.get('cmd');
+  const autoDelay = parseInt(urlParams.get('delay', '500')); // Delay trước khi gửi lệnh (ms)
+  
+  console.log('[Auto-Command] URL param cmd:', autoCmd);
+  console.log('[Auto-Command] Delay:', autoDelay, 'ms');
+
+  // Hàm gửi lệnh tự động khi SSH đã kết nối xong
+  function sendAutoCommand() {
+    if (!autoCmd) {
+      console.log('[Auto-Command] Không có lệnh nào để chạy');
+      return;
+    }
+
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      console.warn('[Auto-Command] WebSocket chưa ready, không thể gửi lệnh');
+      return;
+    }
+
+    console.log('[Auto-Command] Gửi lệnh:', autoCmd);
+    try {
+      ws.send(JSON.stringify({ type: 'input', data: autoCmd + '\n' }));
+      statusText.textContent = `Đã kết nối (orangepi) — chạy: ${autoCmd}`;
+    } catch (err) {
+      console.error('[Auto-Command] Lỗi khi gửi lệnh:', err);
+    }
+  }
+
   function connect() {
     ws = new WebSocket(wsUrl);
 
@@ -102,6 +134,14 @@
           fitAddon.fit();
           term.focus();
           sendResize();
+
+          // ============================================================
+          // GỬI LỆNH TỰ ĐỘNG nếu có tham số ?cmd=...
+          // Delay một chút để chắc chắn terminal sẵn sàng nhận input
+          // ============================================================
+          if (autoCmd) {
+            setTimeout(sendAutoCommand, autoDelay);
+          }
         } else if (msg.status === 'error') {
           statusDot.classList.remove('connected');
           statusText.textContent = 'Lỗi kết nối SSH';
